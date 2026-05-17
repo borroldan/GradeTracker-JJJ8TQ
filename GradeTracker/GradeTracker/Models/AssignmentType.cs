@@ -4,5 +4,6 @@ public enum AssignmentType
 {
     Exam,
     Homework,
+    Quiz,
     Project
 }
