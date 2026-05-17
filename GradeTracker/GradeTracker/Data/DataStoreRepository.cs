@@ -6,24 +6,28 @@ internal sealed class DataStoreRepository : IDataStoreRepository
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
-        WriteIndented = true,
-        PropertyNameCaseInsensitive = true
+        WriteIndented = true
     };
 
     public DataStore Load(string filePath)
     {
+        if (!File.Exists(filePath))
+            throw new InvalidOperationException($"Session file does not exist: {filePath}");
+
         try
         {
-            if (!File.Exists(filePath))
-                throw new FileNotFoundException($"Session file not found: {filePath}");
-
             string json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<DataStore>(json, SerializerOptions)
-                   ?? throw new InvalidOperationException($"Deserialization returned null for: {filePath}");
+            return JsonSerializer.Deserialize<DataStore>(json, SerializerOptions) ?? new DataStore();
         }
         catch (JsonException ex)
         {
-            throw new InvalidOperationException($"Malformed JSON in session file: {filePath}", ex);
+            Console.WriteLine($"Failed to parse JSON in '{filePath}': {ex.Message}");
+            throw;
+        }
+        catch (IOException ex)
+        {
+            Console.WriteLine($"I/O error reading '{filePath}': {ex.Message}");
+            throw;
         }
     }
 
@@ -38,35 +42,57 @@ internal sealed class DataStoreRepository : IDataStoreRepository
             string json = JsonSerializer.Serialize(store, SerializerOptions);
             File.WriteAllText(filePath, json);
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
-            Console.WriteLine($"Error saving session file '{filePath}': {ex.Message}");
+            Console.WriteLine($"Serialization error for '{filePath}': {ex.Message}");
+            throw;
+        }
+        catch (IOException ex)
+        {
+            Console.WriteLine($"I/O error writing '{filePath}': {ex.Message}");
             throw;
         }
     }
 
     public IEnumerable<string> FindFilesContainingStudent(string folderPath, Guid studentId)
     {
-        if (!Directory.Exists(folderPath))
+        string[] files;
+
+        try
+        {
+            files = Directory.GetFiles(folderPath, "*.json");
+        }
+        catch (DirectoryNotFoundException)
         {
             Console.WriteLine($"Folder not found: {folderPath}");
             yield break;
         }
-
-        foreach (string file in Directory.EnumerateFiles(folderPath, "*.json"))
+        catch (IOException ex)
         {
-            DataStore? store = null;
+            Console.WriteLine($"I/O error accessing folder '{folderPath}': {ex.Message}");
+            yield break;
+        }
+
+        foreach (string file in files)
+        {
+            DataStore? store;
             try
             {
                 string json = File.ReadAllText(file);
                 store = JsonSerializer.Deserialize<DataStore>(json, SerializerOptions);
             }
-            catch (Exception ex)
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"Skipping malformed JSON file '{file}': {ex.Message}");
+                continue;
+            }
+            catch (IOException ex)
             {
                 Console.WriteLine($"Skipping unreadable file '{file}': {ex.Message}");
+                continue;
             }
 
-            if (store?.GradeEntries.Any(e => e.StudentId == studentId) == true)
+            if (store?.GradeEntries.Any(entry => entry.StudentId == studentId) == true)
                 yield return file;
         }
     }

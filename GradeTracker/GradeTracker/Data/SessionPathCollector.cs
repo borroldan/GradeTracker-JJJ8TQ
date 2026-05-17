@@ -44,9 +44,10 @@ internal sealed class SessionPathCollector
                 continue;
             }
 
-            return input.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-                ? input
-                : $"{input}.json";
+            if (input.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                return input[..^5];
+
+            return input;
         }
     }
 }
