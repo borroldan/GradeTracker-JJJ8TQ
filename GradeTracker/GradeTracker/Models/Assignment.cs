@@ -1,6 +1,6 @@
 namespace GradeTracker.Models;
 
-internal sealed record Assignment(
+public sealed record Assignment(
     Guid Id,
     Guid SubjectId,
     string Name,

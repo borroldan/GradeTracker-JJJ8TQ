@@ -1,6 +1,6 @@
 namespace GradeTracker.Models;
 
-internal sealed record GradeEntry(
+public sealed record GradeEntry(
     Guid Id,
     Guid AssignmentId,
     Guid StudentId,
